@@ -1,0 +1,35 @@
+.blog-content-section .sub-heading {
+    font-size: calc( 1.8rem + 1.74vw );
+}
+
+.blog-content-section .content h1 {
+    font-size: calc(16px + 0.47vw);
+    font-weight: 700;
+}
+
+.blog-content-section .content p {
+    font-size: calc(14px + 0.2vw);
+    font-weight: 500;
+}
+
+.blog-card-scrolling .scroll-images {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.blog-card-scrolling .scroll-images::-webkit-scrollbar {
+    display: none;
+}
+
+.blog-card-scrolling .scroll-images .card-scroll-image {
+    height: 44vh;
+    cursor: grab; 
+    user-select: none;
+}
+.blog-card-scrolling .scroll-images .card-scroll-image:active { cursor: grabbing; }
+
+@media (max-width: 425px) {
+    .blog-card-scrolling .scroll-images .card-scroll-image {
+        height: 25vh;
+    }
+}
