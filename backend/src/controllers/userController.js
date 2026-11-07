@@ -1,9 +1,6 @@
-const config = require("../configs/config");
 const userModel = require('../models/userModel');
-const blogModel = require('../models/blogModel');
-const portfolioModel = require('../models/portfolioModel');
 const sessionModel = require('../models/sessionModel');
-const transporter = require("../utils/nodemailor");
+const sendMail = require("../utils/nodemailor");
 const cloudinary = require('../utils/cloudinary');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
@@ -75,11 +72,12 @@ const deleteAccount = catchAsync(async (req, res, next) => {
   await sessionModel.deleteMany({ user: user._id });
   await userModel.findByIdAndDelete(userId);
 
-  transporter.sendMail({
-    from: `"Bux Design" <${config.EMAIL_USER}>`,
-    to: user.email,
-    subject: "Your Account Has Been Deleted",
-    html: `
+  // Account delete ho chuka hai, email fail ho to bhi response success jana chahiye
+  try {
+    await sendMail({
+      to: user.email,
+      subject: "Your Account Has Been Deleted",
+      html: `
             <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f8fafc;border-radius:12px;">
                 <h2 style="color:#1e293b;margin-bottom:8px;">Account Deleted</h2>
                 <p style="color:#475569;font-size:15px;">
@@ -94,7 +92,10 @@ const deleteAccount = catchAsync(async (req, res, next) => {
                 </p>
             </div>
         `,
-  });
+    });
+  } catch (err) {
+    console.error("Account deletion email failed:", err.message);
+  }
 
   res.clearCookie("refreshToken", {
     httpOnly: true,
@@ -186,11 +187,12 @@ const deleteUserByAdmin = catchAsync(async (req, res, next) => {
   await sessionModel.deleteMany({ user: user._id });
   await userModel.findByIdAndDelete(id);
 
-  transporter.sendMail({
-    from: `"Bux Design" <${config.EMAIL_USER}>`,
-    to: user.email,
-    subject: "Your Account Has Been Deleted",
-    html: `
+  // User delete ho chuka hai, email fail ho to bhi response success jana chahiye
+  try {
+    await sendMail({
+      to: user.email,
+      subject: "Your Account Has Been Deleted",
+      html: `
             <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f8fafc;border-radius:12px;">
                 <h2 style="color:#1e293b;margin-bottom:8px;">Account Deleted</h2>
                 <p style="color:#475569;font-size:15px;">
@@ -205,7 +207,10 @@ const deleteUserByAdmin = catchAsync(async (req, res, next) => {
                 </p>
             </div>
         `,
-  });
+    });
+  } catch (err) {
+    console.error("Admin deletion email failed:", err.message);
+  }
 
   res.status(200).json({
     message: "User deleted successfully by admin",

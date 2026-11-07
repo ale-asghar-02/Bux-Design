@@ -1,7 +1,7 @@
 const config = require("../configs/config.js");
 const userModel = require("../models/userModel.js");
 const quoteModel = require("../models/quoteModel.js");
-const transporter = require("../utils/nodemailor.js");
+const sendMail = require("../utils/nodemailor.js");
 const quoteEmailTemplate = require("../utils/quoteEmailTemplate.js");
 const catchAsync = require("../utils/catchAsync.js");
 const AppError = require("../utils/AppError.js");
@@ -15,6 +15,10 @@ const createQuote = catchAsync(async (req, res, next) => {
 
   const { username, email, service, budget, projectDescription } = req.body;
 
+  if (!username || !email || !service || !budget || !projectDescription) {
+    return next(new AppError("All fields are required", 400));
+  }
+
   const quote = await quoteModel.create({
     username,
     email,
@@ -27,17 +31,23 @@ const createQuote = catchAsync(async (req, res, next) => {
     return next(new AppError("Something went wrong while saving the quote", 500));
   }
 
-  await transporter.sendMail({
-    to: config.ADMIN_EMAIL,
-    subject: `New Quote Request from ${username}`,
-    html: quoteEmailTemplate({
-      username,
-      email,
-      service,
-      budget,
-      projectDescription,
-    }),
-  });
+  // Quote save ho chuka hai, email fail ho to bhi client ko success milna chahiye
+  try {
+    await sendMail({
+      to: config.ADMIN_EMAIL,
+      subject: `New Quote Request from ${username}`,
+      html: quoteEmailTemplate({
+        username,
+        email,
+        service,
+        budget,
+        projectDescription,
+      }),
+      replyTo: email, // Reply dabane par seedha client ko jayega
+    });
+  } catch (err) {
+    console.error("Quote email failed:", err.message);
+  }
 
   return res.status(201).json({
     success: true,

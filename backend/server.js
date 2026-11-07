@@ -31,6 +31,13 @@ app.use((req, res, next) => {
     next(new AppError(`Route not found: ${req.originalUrl}`, 404));
 });
 
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ 
+    success: true,
+    message: "server is running"
+  });
+});
+
 //* Global error handler
 app.use(errorHandler);
 

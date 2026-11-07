@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const config = require("../configs/config");
 const userModel = require("../models/userModel");
 const sessionModel = require("../models/sessionModel");
-const transporter = require("../utils/nodemailor");
+const sendMail = require("../utils/nodemailor");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/AppError");
 
@@ -30,11 +30,12 @@ const userRegister = catchAsync(async (req, res, next) => {
   });
   await newUser.save();
 
-  await transporter.sendMail({
-    from: `"Bux Design" <${config.EMAIL_USER}>`,
-    to: newUser.email,
-    subject: "Welcome to Bux Design 🎉",
-    html: `
+  // Email fail ho to bhi registration chalni chahiye
+  try {
+    await sendMail({
+      to: newUser.email,
+      subject: "Welcome to Bux Design 🎉",
+      html: `
             <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px; background:#f8fafc;border-radius:12px;">
                 <h2 style="color:#1e293b;margin-bottom:8px;">Welcome, ${newUser.username}!</h2>
                 <p style="color:#475569;font-size:15px;">
@@ -55,7 +56,10 @@ const userRegister = catchAsync(async (req, res, next) => {
                 </p>
             </div>
         `,
-  });
+    });
+  } catch (err) {
+    console.error("Welcome email failed:", err.message);
+  }
 
   const refreshToken = jwt.sign({ id: newUser._id }, config.JWT_SECRET, {
     expiresIn: "7d",
@@ -101,7 +105,7 @@ const userRegister = catchAsync(async (req, res, next) => {
       username: newUser.username,
       email: newUser.email,
       createdAt: newUser.createdAt,
-      isActive: newUser.isActive
+      isActive: newUser.isActive,
     },
     accessToken,
   });
@@ -305,8 +309,12 @@ const forgotPassword = catchAsync(async (req, res, next) => {
   const normalizedEmail = email.trim().toLowerCase();
 
   const user = await userModel.findOne({ email: normalizedEmail });
+
+  // User na mile to bhi same response (email exist karti hai ya nahi, ye leak nahi hota)
   if (!user) {
-    return next(new AppError("Please enter your correct email address"));
+    return res
+      .status(200)
+      .json({ message: "If this email exists, a reset link has been sent" });
   }
 
   const resetToken = crypto.randomBytes(32).toString("hex");
@@ -321,8 +329,7 @@ const forgotPassword = catchAsync(async (req, res, next) => {
 
   const resetUrl = `${config.FRONTEND_URL}/reset-password/${resetToken}`;
 
-  await transporter.sendMail({
-    from: `"Bux Design" <${config.EMAIL_USER}>`,
+  await sendMail({
     to: user.email,
     subject: "Password Reset Request",
     html: `
@@ -379,11 +386,12 @@ const resetPassword = catchAsync(async (req, res, next) => {
   user.passwordResetExpires = undefined;
   await user.save();
 
-  await transporter.sendMail({
-    from: `"Bux Design" <${config.EMAIL_USER}>`,
-    to: user.email,
-    subject: "Your Password Has Been Reset",
-    html: `
+  // Password change ho chuka hai, confirmation email fail ho to bhi flow chalna chahiye
+  try {
+    await sendMail({
+      to: user.email,
+      subject: "Your Password Has Been Reset",
+      html: `
             <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f8fafc;border-radius:12px;">
                 <div style="text-align:center;margin-bottom:24px;">
                     <div style="display:inline-block;background:#dcfce7;border-radius:50%;padding:16px;">
@@ -403,7 +411,10 @@ const resetPassword = catchAsync(async (req, res, next) => {
                 </p>
             </div>
         `,
-  });
+    });
+  } catch (err) {
+    console.error("Password reset confirmation email failed:", err.message);
+  }
 
   await sessionModel.updateMany(
     { user: user._id, revoked: false },
@@ -442,7 +453,7 @@ const resetPassword = catchAsync(async (req, res, next) => {
   res.status(200).json({
     message: "Password reset successfully",
     accessToken,
-    user: user
+    user: user,
   });
 });
 
@@ -516,8 +527,7 @@ const forgotGateCode = catchAsync(async (req, res, next) => {
 
   const resetUrl = `${config.FRONTEND_URL}/reset-code/${resetToken}`;
 
-  await transporter.sendMail({
-    from: `"Bux Design" <${config.EMAIL_USER}>`,
+  await sendMail({
     to: config.ADMIN_EMAIL,
     subject: "Code Reset Request",
     html: `
@@ -577,4 +587,16 @@ const resetGateCode = catchAsync(async (req, res, next) => {
   res.status(200).json({ message: "Gate code reset successfully" });
 });
 
-module.exports = { userRegister, userLogin, refreshToken, logout, logoutAll, forgotPassword, resetPassword, verifyGateCode, checkGateStatus, forgotGateCode, resetGateCode };
+module.exports = {
+  userRegister,
+  userLogin,
+  refreshToken,
+  logout,
+  logoutAll,
+  forgotPassword,
+  resetPassword,
+  verifyGateCode,
+  checkGateStatus,
+  forgotGateCode,
+  resetGateCode,
+};

@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const config = require("../configs/config");
 const reviewModel = require("../models/reviewModel");
 const cloudinary = require("../utils/cloudinary");
-const transporter = require("../utils/nodemailor");
+const sendMail = require("../utils/nodemailor");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/AppError");
 
@@ -36,7 +36,7 @@ const generateReviewLink = catchAsync(async (req, res, next) => {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-  await reviewModel.create({
+  const newReview = await reviewModel.create({
     email,
     token: {
       token,
@@ -45,13 +45,13 @@ const generateReviewLink = catchAsync(async (req, res, next) => {
     },
   });
 
-  const reviewLink = `${process.env.FRONTEND_URL}/review/${token}`;
+  const reviewLink = `${config.FRONTEND_URL}/review/${token}`;
 
-  await transporter.sendMail({
-    from: `"Bux Design" <${config.EMAIL_USER}>`,
-    to: email,
-    subject: "You're invited to leave a review",
-    html: `
+  try {
+    await sendMail({
+      to: email,
+      subject: "You're invited to leave a review",
+      html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2>Share Your Experience</h2>
                 <p>You've been invited to leave a review. Click the button below to share your feedback.</p>
@@ -61,7 +61,16 @@ const generateReviewLink = catchAsync(async (req, res, next) => {
                 <p style="color: #888; font-size: 13px;">This link will expire in 7 days.</p>
             </div>
         `,
-  });
+    });
+  } catch (err) {
+    // Email nahi gayi to record delete kar do, warna dobara link bhejne par
+    // "already sent" ka error aata rahega
+    await reviewModel.findByIdAndDelete(newReview._id);
+    console.error("Review email failed:", err.message);
+    return next(
+      new AppError("Failed to send review email. Please try again.", 500),
+    );
+  }
 
   return res.status(200).json({
     success: true,
@@ -199,4 +208,11 @@ const deleteReview = catchAsync(async (req, res, next) => {
   });
 });
 
-module.exports = { generateReviewLink, submitReview, getAllReviews, getApprovedReviews, updateReviewStatus, deleteReview };
+module.exports = {
+  generateReviewLink,
+  submitReview,
+  getAllReviews,
+  getApprovedReviews,
+  updateReviewStatus,
+  deleteReview,
+};
