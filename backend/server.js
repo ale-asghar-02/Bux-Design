@@ -19,6 +19,13 @@ app.use(cors({
 }))
 
 //* Routes
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'server is running'
+    });
+});
+
 app.use('/auth/user', require('./src/routes/authRoute'));
 app.use('/user', require('./src/routes/userRoute'));
 app.use('/portfolio', require('./src/routes/portfolioRoute'));
@@ -29,13 +36,6 @@ app.use('/review', require('./src/routes/reviewRoute'));
 //* Unhandled routes
 app.use((req, res, next) => {
     next(new AppError(`Route not found: ${req.originalUrl}`, 404));
-});
-
-app.get("/api/health", (req, res) => {
-  res.status(200).json({ 
-    success: true,
-    message: "server is running"
-  });
 });
 
 //* Global error handler
